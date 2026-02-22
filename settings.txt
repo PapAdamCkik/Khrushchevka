@@ -1,0 +1,7 @@
+up=265
+down=264
+left=263
+right=262
+action=32
+difficulty=2
+language=0

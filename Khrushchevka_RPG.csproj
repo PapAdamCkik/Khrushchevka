@@ -9,6 +9,12 @@
 
   <ItemGroup>
     <PackageReference Include="Raylib-cs" Version="7.0.2" />
+    <Content Include="images\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="fonts\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>
