@@ -19,7 +19,18 @@ class Game
     // Player variables
     private Vector2 playerPos;
     private float playerSize;
-    private float playerSpeed;
+    private Vector2 lastMoveDirection;
+    
+    // Player statistics
+    private int maxHealth;
+    private int currentHealth;
+    private float speed;
+    private int damage;
+    private float attackSpeed;
+    private float range;
+    
+    // Weapon
+    private Sword sword;
     
     // Room rendering variables
     private int tileSize;
@@ -30,6 +41,11 @@ class Game
     private Vector2 gatewayPos;
     private float gatewaySize;
     private bool showGateway;
+    
+    // Game state
+    private bool isDead;
+    private int deathSelectedOption;
+    private string[] deathOptions;
     
     // Pause menu variables
     private bool isPaused;
@@ -54,14 +70,30 @@ class Game
         // Calculate room layout
         CalculateRoomLayout();
         
-        // Initialize player in center of room
+        // Initialize player position
         playerPos = new Vector2(400, 225);  // Center of screen
         playerSize = 20;  // Smaller than a tile
-        playerSpeed = 3.0f;
+        lastMoveDirection = new Vector2(0, -1); // Default facing up
+        
+        // Initialize player statistics (defaults)
+        maxHealth = 10;
+        currentHealth = 10;
+        speed = 1.0f;
+        damage = 5;
+        attackSpeed = 1.0f;
+        range = 1.0f;
+        
+        // Initialize weapon
+        sword = new Sword(damage, attackSpeed, range);
         
         // Initialize gateway
         gatewaySize = 40;
         showGateway = false;
+        
+        // Initialize game state
+        isDead = false;
+        deathSelectedOption = 0;
+        deathOptions = new string[] { "Restart", "Return to Menu" };
         
         // Initialize pause menu
         isPaused = false;
@@ -141,8 +173,50 @@ class Game
         }
     }
     
+    private void RestartGame()
+    {
+        // Reset to floor 1
+        currentFloorNumber = 1;
+        currentFloor = floorGenerator.GenerateFloor(currentFloorNumber);
+        currentRoomPos = new GridPosition(0, 0);
+        currentRoomNode = currentFloor[currentRoomPos];
+        playerPos = new Vector2(400, 225);
+        lastMoveDirection = new Vector2(0, -1);
+        
+        // Reset player stats
+        currentHealth = maxHealth;
+        
+        // Reset game state
+        isDead = false;
+        showGateway = false;
+    }
+    
     public (Program.GameState newState, bool openSettings) Update(KeyboardKey upKey, KeyboardKey downKey, KeyboardKey leftKey, KeyboardKey rightKey, KeyboardKey actionKey, int difficulty, int language, Dictionary<string, bool> unlocks)
     {
+        // Death screen handling
+        if (isDead)
+        {
+            if (Raylib.IsKeyPressed(downKey))
+                deathSelectedOption = (deathSelectedOption + 1) % deathOptions.Length;
+            
+            if (Raylib.IsKeyPressed(upKey))
+                deathSelectedOption = (deathSelectedOption - 1 + deathOptions.Length) % deathOptions.Length;
+            
+            if (Raylib.IsKeyPressed(actionKey))
+            {
+                switch (deathSelectedOption)
+                {
+                    case 0: // Restart
+                        RestartGame();
+                        break;
+                    case 1: // Return to Menu
+                        return (Program.GameState.MainMenu, false);
+                }
+            }
+            
+            return (Program.GameState.Playing, false);
+        }
+        
         // Toggle pause with Escape
         if (Raylib.IsKeyPressed(KeyboardKey.Escape))
         {
@@ -177,13 +251,10 @@ class Game
         {
             // Game is not paused - normal gameplay
             
-            // Press R to regenerate current floor (for testing)
+            // Press R to restart game
             if (Raylib.IsKeyPressed(KeyboardKey.R))
             {
-                currentFloor = floorGenerator.GenerateFloor(currentFloorNumber);
-                currentRoomPos = new GridPosition(0, 0);
-                currentRoomNode = currentFloor[currentRoomPos];
-                playerPos = new Vector2(400, 225);
+                RestartGame();
             }
             
             // Press P to go to previous floor (for testing)
@@ -192,22 +263,63 @@ class Game
                 GoToPreviousFloor();
             }
             
-            // Player movement
+            // Press H to take damage (for testing)
+            if (Raylib.IsKeyPressed(KeyboardKey.H))
+            {
+                TakeDamage(1);
+            }
+            
+            // Press J to heal (for testing)
+            if (Raylib.IsKeyPressed(KeyboardKey.J))
+            {
+                Heal(1);
+            }
+            
+            // Player movement (speed affects movement)
             Vector2 newPos = playerPos;
+            Vector2 moveDirection = Vector2.Zero;
+            float moveSpeed = 3.0f * speed;  // Base speed * speed multiplier
             
             if (Raylib.IsKeyDown(upKey))
-                newPos.Y -= playerSpeed;
+            {
+                newPos.Y -= moveSpeed;
+                moveDirection.Y = -1;
+            }
             if (Raylib.IsKeyDown(downKey))
-                newPos.Y += playerSpeed;
+            {
+                newPos.Y += moveSpeed;
+                moveDirection.Y = 1;
+            }
             if (Raylib.IsKeyDown(leftKey))
-                newPos.X -= playerSpeed;
+            {
+                newPos.X -= moveSpeed;
+                moveDirection.X = -1;
+            }
             if (Raylib.IsKeyDown(rightKey))
-                newPos.X += playerSpeed;
+            {
+                newPos.X += moveSpeed;
+                moveDirection.X = 1;
+            }
+            
+            // Update last move direction if player moved
+            if (moveDirection.Length() > 0)
+            {
+                lastMoveDirection = Vector2.Normalize(moveDirection);
+            }
             
             // Check collision before moving
             if (!CheckCollision(newPos))
             {
                 playerPos = newPos;
+            }
+            
+            // Update sword
+            sword.Update(Raylib.GetFrameTime(), playerPos, new Vector2(Raylib.GetMouseX(), Raylib.GetMouseY()), tileSize);
+            
+            // Attack with action key
+            if (Raylib.IsKeyPressed(actionKey))
+            {
+                sword.Attack(lastMoveDirection);
             }
             
             // Check for room transitions through doors
@@ -226,6 +338,24 @@ class Game
         return (Program.GameState.Playing, false);
     }
     
+    private void TakeDamage(int damageAmount)
+    {
+        currentHealth -= damageAmount;
+        if (currentHealth <= 0)
+        {
+            currentHealth = 0;
+            isDead = true;
+            deathSelectedOption = 0; // Reset selection
+        }
+    }
+    
+    private void Heal(int healAmount)
+    {
+        currentHealth += healAmount;
+        if (currentHealth > maxHealth)
+            currentHealth = maxHealth;
+    }
+    
     private void GoToNextFloor()
     {
         if (currentFloorNumber < maxUnlockedFloor)
@@ -236,6 +366,9 @@ class Game
             currentRoomNode = currentFloor[currentRoomPos];
             playerPos = new Vector2(400, 225);
             showGateway = false;  // Reset gateway
+            
+            // Restore health when advancing floors
+            currentHealth = maxHealth;
         }
     }
     
@@ -485,6 +618,13 @@ class Game
     
     public void Draw()
     {
+        // Draw death screen if dead
+        if (isDead)
+        {
+            DrawDeathScreen();
+            return;
+        }
+        
         if (currentRoomNode != null && currentRoomNode.RoomData != null)
         {
             DrawRoom(currentRoomNode);
@@ -496,6 +636,7 @@ class Game
             }
             
             DrawPlayer();
+            sword.Draw();
             DrawMinimap();
         }
         
@@ -505,23 +646,46 @@ class Game
         }
         else
         {
-            // Draw UI
-            Raylib.DrawText($"Floor {currentFloorNumber}", 10, 10, 20, Color.White);
-            Raylib.DrawText("Press P for prev floor", 10, 35, 14, Color.White);
-            Raylib.DrawText("Press B in boss room to defeat", 10, 55, 14, Color.White);
-            Raylib.DrawText("Press ESC to pause", 10, 75, 14, Color.White);
+            // Draw health in top-left corner
+            Raylib.DrawTextEx(pauseFont, $"HP: {currentHealth}/{maxHealth}", new Vector2(10, 10), 20, 1, Color.Red);
             
             // Show unlock status
             if (maxUnlockedFloor >= 9)
             {
-                Raylib.DrawText("Floors 8-9 UNLOCKED!", 10, 95, 14, Color.Gold);
+                Raylib.DrawTextEx(pauseFont, "Floors 8-9 UNLOCKED!", new Vector2(10, 35), 14, 1, Color.Gold);
             }
             
             // Show gateway hint
             if (showGateway)
             {
-                Raylib.DrawText("Gateway to next floor!", 250, 400, 20, Color.Gold);
+                Raylib.DrawTextEx(pauseFont, "Gateway to next floor!", new Vector2(250, 400), 20, 1, Color.Gold);
             }
+        }
+    }
+    
+    private void DrawDeathScreen()
+    {
+        // Draw black background
+        Raylib.DrawRectangle(0, 0, 800, 450, Color.Black);
+        
+        // Draw "YOU ARE DEAD" text
+        Raylib.DrawTextEx(pauseFont, "YOU ARE DEAD", new Vector2(250, 100), 50, 2, Color.Red);
+        
+        // Draw menu options
+        for (int i = 0; i < deathOptions.Length; i++)
+        {
+            Rectangle buttonRect = new Rectangle(250, 220 + i * 60, 300, 50);
+            Color bgColor = i == deathSelectedOption ? Color.DarkGray : new Color(219, 189, 162, 255);
+            Color textColor = i == deathSelectedOption ? Color.White : Color.Black;
+            
+            Raylib.DrawRectangleRec(buttonRect, bgColor);
+            Raylib.DrawRectangleLinesEx(buttonRect, 2, Color.White);
+            
+            Vector2 textSize = Raylib.MeasureTextEx(pauseFont, deathOptions[i], 24, 2);
+            float textX = buttonRect.X + (buttonRect.Width - textSize.X) / 2;
+            float textY = buttonRect.Y + (buttonRect.Height - textSize.Y) / 2;
+            
+            Raylib.DrawTextEx(pauseFont, deathOptions[i], new Vector2(textX, textY), 24, 2, textColor);
         }
     }
     
@@ -586,23 +750,38 @@ class Game
     
     private void DrawPauseMenu()
     {
+        // Draw semi-transparent gray overlay
         Raylib.DrawRectangle(0, 0, 800, 450, new Color(0, 0, 0, 180));
-        Raylib.DrawTextEx(pauseFont, "PAUSED", new Vector2(330, 80), 40, 2, Color.White);
         
+        // Draw "PAUSED" title
+        Raylib.DrawTextEx(pauseFont, "PAUSED", new Vector2(330, 50), 40, 2, Color.White);
+        
+        // Draw player stats below title
+        int statsStartY = 110;
+        int lineHeight = 22;
+        
+        Raylib.DrawTextEx(pauseFont, "=== STATS ===", new Vector2(320, statsStartY), 20, 1, Color.White);
+        Raylib.DrawTextEx(pauseFont, $"Health: {currentHealth}/{maxHealth}", new Vector2(280, statsStartY + lineHeight), 18, 1, Color.Red);
+        Raylib.DrawTextEx(pauseFont, $"Speed: {speed:F1}", new Vector2(280, statsStartY + lineHeight * 2), 18, 1, Color.Green);
+        Raylib.DrawTextEx(pauseFont, $"Damage: {damage}", new Vector2(280, statsStartY + lineHeight * 3), 18, 1, Color.Orange);
+        Raylib.DrawTextEx(pauseFont, $"Attack Speed: {attackSpeed:F1}", new Vector2(280, statsStartY + lineHeight * 4), 18, 1, Color.Yellow);
+        Raylib.DrawTextEx(pauseFont, $"Range: {range:F1}", new Vector2(280, statsStartY + lineHeight * 5), 18, 1, Color.Blue);
+        
+        // Draw menu options
         for (int i = 0; i < pauseOptions.Length; i++)
         {
-            Rectangle buttonRect = new Rectangle(250, 180 + i * 60, 300, 50);
+            Rectangle buttonRect = new Rectangle(250, 260 + i * 50, 300, 45);
             Color bgColor = i == pauseSelectedOption ? Color.DarkGray : new Color(219, 189, 162, 255);
             Color textColor = i == pauseSelectedOption ? Color.White : Color.Black;
             
             Raylib.DrawRectangleRec(buttonRect, bgColor);
             Raylib.DrawRectangleLinesEx(buttonRect, 2, Color.Black);
             
-            Vector2 textSize = Raylib.MeasureTextEx(pauseFont, pauseOptions[i], 24, 2);
+            Vector2 textSize = Raylib.MeasureTextEx(pauseFont, pauseOptions[i], 22, 1);
             float textX = buttonRect.X + (buttonRect.Width - textSize.X) / 2;
             float textY = buttonRect.Y + (buttonRect.Height - textSize.Y) / 2;
             
-            Raylib.DrawTextEx(pauseFont, pauseOptions[i], new Vector2(textX, textY), 24, 2, textColor);
+            Raylib.DrawTextEx(pauseFont, pauseOptions[i], new Vector2(textX, textY), 22, 1, textColor);
         }
     }
     
@@ -682,7 +861,8 @@ class Game
         if (!isPaused)
         {
             string roomTypeText = $"Room: {node.Type}";
-            Raylib.DrawText(roomTypeText, 10, 420, 16, Color.White);
+            Raylib.DrawTextEx(pauseFont, roomTypeText, new Vector2(10, 420), 16, 1, Color.White);
+            Raylib.DrawTextEx(pauseFont, $"Floor {currentFloorNumber}", new Vector2(680, 10), 20, 1, Color.White);
         }
     }
 }
