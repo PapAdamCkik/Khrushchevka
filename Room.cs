@@ -77,7 +77,7 @@ public static class RoomBlueprints
 {
     public static List<Room> NormalRooms = new List<Room>();
     public static List<Room> SpecialRooms = new List<Room>();
-    private static Room emptyRoom;
+    private static Room emptyRoom = null!;
     
     public static void Initialize()
     {
