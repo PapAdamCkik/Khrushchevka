@@ -12,8 +12,10 @@ public static class Localization
             {
                 // Main Menu
                 { "menu_play", "Play" },
+                { "menu_tutorial", "Tutorial" },
                 { "menu_settings", "Settings" },
                 { "menu_exit", "Exit" },
+                { "menu_created_by", "Created by" },
                 
                 // Settings Menu
                 { "settings_title", "SETTINGS" },
@@ -64,6 +66,13 @@ public static class Localization
                 { "ui_floor", "Floor" },
                 { "ui_room", "Room" },
                 { "ui_gateway", "Gateway to next floor!" },
+                
+                // Tutorial
+                { "tutorial_move", "to move" },
+                { "tutorial_attack", "to attack" },
+                { "tutorial_ranged", "Hold attack key for ranged throw" },
+                { "tutorial_items", "Pick up items to become stronger" },
+                { "tutorial_enemy", "Defeat the enemy to finish the tutorial" },
             }
         },
         
@@ -73,8 +82,10 @@ public static class Localization
             {
                 // Main Menu
                 { "menu_play", "Játék" },
+                { "menu_tutorial", "Tutorial" },
                 { "menu_settings", "Beállítások" },
                 { "menu_exit", "Kilépés" },
+                { "menu_created_by", "Készítette" },
                 
                 // Settings Menu
                 { "settings_title", "BEÁLLÍTÁSOK" },
@@ -125,6 +136,13 @@ public static class Localization
                 { "ui_floor", "Szint" },
                 { "ui_room", "Szoba" },
                 { "ui_gateway", "Kapu a következő szintre!" },
+                
+                // Tutorial
+                { "tutorial_move", "a mozgáshoz" },
+                { "tutorial_attack", "a támadáshoz" },
+                { "tutorial_ranged", "Tartsd nyomva a támadásgombot a dobáshoz" },
+                { "tutorial_items", "Szedd fel a tárgyakat az erősödéshez" },
+                { "tutorial_enemy", "Győzd le az ellenséget a befejezéshez" },
             }
         }
     };

@@ -146,9 +146,9 @@ public class Sword
             isAttacking = true;
             attackAnimTimer = attackAnimDuration;
             attackCooldown = 1.0f / attackSpeed;
-            
             attackDirection = direction.Length() > 0 ? Vector2.Normalize(direction) : new Vector2(0, -1);
             SpawnWindParticles();
+            SoundManager.Play("sword_swing");
         }
     }
     
@@ -159,12 +159,12 @@ public class Sword
             boomerangDir = direction.Length() > 0 ? Vector2.Normalize(direction) : new Vector2(0, -1);
             boomerangPos = playerPos;
             boomerangTravelled = 0;
-            boomerangMaxDist = range * 32f * 5f; // 5x normal range
+            boomerangMaxDist = range * 32f * 5f;
             boomerangSpeed = 500f;
             boomerangReturning = false;
             boomerangAngle = 0;
             isBoomerang = true;
-            // No cooldown until caught
+            SoundManager.Play("sword_throw");
         }
     }
     

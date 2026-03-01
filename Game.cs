@@ -302,10 +302,13 @@ class Game
             return;
         }
         
-        // Determine how many enemies to spawn based on floor
-        int enemyCount = 3 + (currentFloorNumber * 2);
-        
         Random rand = new Random();
+        
+        // 50% chance the room is empty — no enemies spawn
+        if (rand.NextDouble() < 0.5)
+            return;
+        
+        int enemyCount = 3 + (currentFloorNumber * 2);
         
         for (int i = 0; i < enemyCount; i++)
         {
@@ -346,7 +349,10 @@ class Game
         }
         
         if (enemies.Count > 0)
+        {
             roomLocked = true;
+            SoundManager.Play("room_lock");
+        }
     }
     
     private void SpawnBoss()
@@ -377,6 +383,8 @@ class Game
         
         currentBoss = new Boss(chosen, new Vector2(400, 225), il, ir, it, ib);
         roomLocked = true;
+        SoundManager.Play("room_lock");
+        SoundManager.Play("boss_enter");
     }
     
     private void UpdateRoomLock()
@@ -389,6 +397,7 @@ class Game
             clearedRooms.Add(currentRoomPos);
             lockFlashTimer = LockFlashDuration;
             TryDropHealthPickup();
+            SoundManager.Play("room_unlock");
         }
         
         // Boss room unlock
@@ -399,6 +408,7 @@ class Game
             clearedRooms.Add(currentRoomPos);
             lockFlashTimer = LockFlashDuration;
             TryDropHealthPickup();
+            SoundManager.Play("room_unlock");
         }
     }
     
@@ -424,6 +434,7 @@ class Game
             {
                 ApplyItem(activeItems[i].Type);
                 activeItems.RemoveAt(i);
+                SoundManager.Play("item_pickup");
             }
         }
     }
@@ -562,7 +573,14 @@ class Game
             if (Raylib.IsKeyDown(leftKey))  moveDirection.X = -1;
             if (Raylib.IsKeyDown(rightKey)) moveDirection.X =  1;
             if (moveDirection.Length() > 0)
+            {
                 lastMoveDirection = Vector2.Normalize(moveDirection);
+                SoundManager.PlayIfNotPlaying("player_step", 0.4f);
+            }
+            else
+            {
+                SoundManager.Stop("player_step");
+            }
             
             Vector2 newPosX = new Vector2(playerPos.X + moveDirection.X * moveSpeed, playerPos.Y);
             if (!CheckCollision(newPosX)) playerPos = newPosX;
@@ -719,6 +737,7 @@ class Game
                         enemy.TakeDamage(damage);
                         Vector2 kbDir = Vector2.Normalize(enemy.Position - playerPos);
                         enemy.ApplyKnockback(kbDir, 350f);
+                        SoundManager.Play("sword_hit");
                     }
                 }
             }
@@ -736,6 +755,7 @@ class Game
                         enemy.TakeDamage(damage);
                         Vector2 kbDir = Vector2.Normalize(enemy.Position - bPos);
                         enemy.ApplyKnockback(kbDir, 300f);
+                        SoundManager.Play("sword_hit");
                     }
                 }
                 if (currentBoss != null && currentBoss.IsAlive)
@@ -772,6 +792,11 @@ class Game
             currentHealth = 0;
             isDead = true;
             deathSelectedOption = 0;
+            SoundManager.Play("player_death");
+        }
+        else
+        {
+            SoundManager.Play("player_hurt");
         }
     }
     
@@ -786,6 +811,7 @@ class Game
     {
         if (currentFloorNumber < 7)
         {
+            SoundManager.Play("floor_transition");
             currentFloorNumber++;
             currentFloor = floorGenerator.GenerateFloor(currentFloorNumber);
             currentRoomPos = new GridPosition(0, 0);

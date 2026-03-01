@@ -24,3 +24,6 @@
 /home/Adam/Documents/Projects/Khrushchevka_RPG/obj/Debug/net9.0/Khrushchevka_RPG.pdb
 /home/Adam/Documents/Projects/Khrushchevka_RPG/obj/Debug/net9.0/Khrushchevka_RPG.genruntimeconfig.cache
 /home/Adam/Documents/Projects/Khrushchevka_RPG/obj/Debug/net9.0/ref/Khrushchevka_RPG.dll
+/home/Adam/Documents/Projects/Khrushchevka_RPG/bin/Debug/net9.0/fonts/Ithaca-LVB75.ttf
+/home/Adam/Documents/Projects/Khrushchevka_RPG/bin/Debug/net9.0/fonts/Helvetica.ttf
+/home/Adam/Documents/Projects/Khrushchevka_RPG/bin/Debug/net9.0/fonts/font.ttf

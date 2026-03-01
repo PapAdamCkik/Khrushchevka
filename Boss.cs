@@ -104,7 +104,8 @@ public class Boss
         invincibilityTimer = InvDuration;
         hitFlashTimer = FlashDuration;
         Health -= damage;
-        if (Health <= 0) { Health = 0; IsAlive = false; }
+        if (Health <= 0) { Health = 0; IsAlive = false; SoundManager.Play("boss_death"); }
+        else SoundManager.Play("boss_hurt");
     }
 
     // Returns list of enemies to spawn (only Spawner uses this)
@@ -146,6 +147,7 @@ public class Boss
             shootTimer = 1.0f;
             Vector2 dir = Vector2.Normalize(playerPos - Position);
             bullets.Add(new Bullet(Position, dir * 160f, 6f, false));
+            SoundManager.Play("enemy_shoot");
         }
     }
 

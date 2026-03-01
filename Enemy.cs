@@ -178,14 +178,10 @@ public class Enemy
     
     public void TakeDamage(int damage)
     {
-        // Ignore damage during invincibility window
         if (invincibilityTimer > 0) return;
-        
         invincibilityTimer = InvincibilityDuration;
         hitFlashTimer = HitFlashDuration;
-        
         Health -= damage;
-        
         if (Health <= 0)
         {
             if (Type == EnemyType.Reviver && !isStunned)
@@ -194,12 +190,18 @@ public class Enemy
                 stunnedTimer = reviveTime;
                 Health = 1;
                 Color = Color.DarkGray;
+                SoundManager.Play("enemy_hurt");
             }
             else
             {
                 Health = 0;
                 IsAlive = false;
+                SoundManager.Play("enemy_death");
             }
+        }
+        else
+        {
+            SoundManager.Play("enemy_hurt");
         }
     }
     
@@ -371,6 +373,7 @@ public class Enemy
                 Vector2 direction = new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle));
                 bullets.Add(new Bullet(Position, direction * 100f, 5f, false));
             }
+            SoundManager.Play("enemy_shoot");
         }
     }
     
@@ -419,6 +422,7 @@ public class Enemy
                     };
                     reviveCastTimer = 0;
                     reviveTarget = null;
+                    SoundManager.Play("enemy_revive");
                 }
             }
         }
@@ -445,6 +449,7 @@ public class Enemy
                     Vector2 direction = new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle));
                     bullets.Add(new Bullet(Position, direction * 100f, 5f, false));
                 }
+                SoundManager.Play("enemy_shoot");
             }
             
             if (rand.NextDouble() < 0.01)
@@ -574,6 +579,7 @@ public class Enemy
     {
         Vector2 direction = Vector2.Normalize(playerPos - Position);
         bullets.Add(new Bullet(Position, direction * bulletSpeed, 5f, pierceWalls));
+        SoundManager.Play("enemy_shoot");
     }
     
     private List<Vector2> FindPath(Vector2 start, Vector2 end, int[,] roomLayout, int tileSize, int offsetX, int offsetY)

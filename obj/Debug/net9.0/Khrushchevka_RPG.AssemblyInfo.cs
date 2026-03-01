@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Khrushchevka_RPG")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9edd84f7a792b6701dce01c32452593e5ad48924")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+48182f53d72cbbb75f08535284ade70cdc8933e0")]
 [assembly: System.Reflection.AssemblyProductAttribute("Khrushchevka_RPG")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Khrushchevka_RPG")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

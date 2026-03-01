@@ -4,10 +4,11 @@ needed:
 - final boss
 - black backgroung outside the room
 - remove room block borders
-- tutorial
+✓ tutorial
+- difficulty
 optional: 
 - textures for enemies
 - textures for walls
 - textures for obsticles
 - floor backkgrounds
-- audio
+✓ audio
