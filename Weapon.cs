@@ -52,6 +52,18 @@ public class Sword
     private float attackAnimDuration = 0.2f;
     private Vector2 attackDirection;
     
+    // Charge / boomerang attack
+    private bool isBoomerang;
+    private Vector2 boomerangPos;
+    private Vector2 boomerangDir;
+    private float boomerangSpeed;
+    private bool boomerangReturning;
+    private float boomerangMaxDist;
+    private float boomerangTravelled;
+    private float boomerangAngle; // rotation for visual spin
+    
+    // Charge input tracking
+    
     // Particle system
     private List<Particle> particles;
     private Random rand;
@@ -66,22 +78,56 @@ public class Sword
         this.attackAnimTimer = 0;
         this.particles = new List<Particle>();
         this.rand = new Random();
+        this.isBoomerang = false;
+        this.boomerangReturning = false;
     }
     
     public void Update(float deltaTime, Vector2 playerPosition, Vector2 mousePosition, float tileSize)
     {
         playerPos = playerPosition;
         
-        // Update attack cooldown
         if (attackCooldown > 0)
             attackCooldown -= deltaTime;
         
-        // Update attack animation
+        // Update normal swing animation
         if (isAttacking)
         {
             attackAnimTimer -= deltaTime;
             if (attackAnimTimer <= 0)
                 isAttacking = false;
+        }
+        
+        // Update boomerang
+        if (isBoomerang)
+        {
+            boomerangAngle += deltaTime * 720f; // spin fast
+            
+            if (!boomerangReturning)
+            {
+                float step = boomerangSpeed * deltaTime;
+                boomerangPos += boomerangDir * step;
+                boomerangTravelled += step;
+                
+                if (boomerangTravelled >= boomerangMaxDist)
+                    boomerangReturning = true;
+            }
+            else
+            {
+                // Return toward player
+                Vector2 toPlayer = playerPos - boomerangPos;
+                float dist = toPlayer.Length();
+                if (dist < boomerangSpeed * deltaTime + 8f)
+                {
+                    // Caught — end boomerang
+                    isBoomerang = false;
+                    boomerangReturning = false;
+                    attackCooldown = 1.0f / attackSpeed;
+                }
+                else
+                {
+                    boomerangPos += Vector2.Normalize(toPlayer) * boomerangSpeed * deltaTime;
+                }
+            }
         }
         
         // Update particles
@@ -95,22 +141,30 @@ public class Sword
     
     public void Attack(Vector2 direction)
     {
-        if (attackCooldown <= 0 && !isAttacking)
+        if (attackCooldown <= 0 && !isAttacking && !isBoomerang)
         {
             isAttacking = true;
             attackAnimTimer = attackAnimDuration;
-            attackCooldown = 1.0f / attackSpeed; // Convert attack speed to cooldown
+            attackCooldown = 1.0f / attackSpeed;
             
-            // Set attack direction
-            attackDirection = direction;
-            float length = attackDirection.Length();
-            if (length > 0)
-                attackDirection = Vector2.Normalize(attackDirection);
-            else
-                attackDirection = new Vector2(0, -1); // Default to up if no direction
-            
-            // Spawn wind particles
+            attackDirection = direction.Length() > 0 ? Vector2.Normalize(direction) : new Vector2(0, -1);
             SpawnWindParticles();
+        }
+    }
+    
+    public void ChargeAttack(Vector2 direction)
+    {
+        if (attackCooldown <= 0 && !isAttacking && !isBoomerang)
+        {
+            boomerangDir = direction.Length() > 0 ? Vector2.Normalize(direction) : new Vector2(0, -1);
+            boomerangPos = playerPos;
+            boomerangTravelled = 0;
+            boomerangMaxDist = range * 32f * 5f; // 5x normal range
+            boomerangSpeed = 500f;
+            boomerangReturning = false;
+            boomerangAngle = 0;
+            isBoomerang = true;
+            // No cooldown until caught
         }
     }
     
@@ -158,35 +212,46 @@ public class Sword
         foreach (var particle in particles)
         {
             float alpha = particle.GetAlpha();
-            Color drawColor = new Color(
-                particle.Color.R,
-                particle.Color.G,
-                particle.Color.B,
-                (byte)(alpha * 255)
-            );
-            
+            Color drawColor = new Color(particle.Color.R, particle.Color.G, particle.Color.B, (byte)(alpha * 255));
             Raylib.DrawCircleV(particle.Position, particle.Size, drawColor);
         }
         
-        // Draw sword swing animation
+        // Draw normal sword swing
         if (isAttacking)
         {
             float animProgress = 1.0f - (attackAnimTimer / attackAnimDuration);
-            float swingAngle = animProgress * 120f - 60f; // Swing from -60 to +60 degrees
-            
+            float swingAngle = animProgress * 120f - 60f;
             float baseAngle = (float)Math.Atan2(attackDirection.Y, attackDirection.X);
             float currentAngle = baseAngle + swingAngle * (float)Math.PI / 180f;
-            
-            // Draw sword as a line
             Vector2 swordEnd = playerPos + new Vector2(
                 (float)Math.Cos(currentAngle) * range * 32f,
-                (float)Math.Sin(currentAngle) * range * 32f
-            );
-            
+                (float)Math.Sin(currentAngle) * range * 32f);
             Raylib.DrawLineEx(playerPos, swordEnd, 3f, Color.Gray);
             Raylib.DrawCircleV(swordEnd, 4f, Color.LightGray);
         }
+        
+        // Draw boomerang — same look as sword, spinning around its center
+        if (isBoomerang)
+        {
+            float rad = boomerangAngle * (float)Math.PI / 180f;
+            float halfLen = range * 32f / 2f;
+            Vector2 tip1 = boomerangPos + new Vector2((float)Math.Cos(rad), (float)Math.Sin(rad)) * halfLen;
+            Vector2 tip2 = boomerangPos - new Vector2((float)Math.Cos(rad), (float)Math.Sin(rad)) * halfLen;
+            Raylib.DrawLineEx(tip1, tip2, 3f, Color.Gray);
+            Raylib.DrawCircleV(tip1, 4f, Color.LightGray); // blade tip
+            
+            // Trail line from player to boomerang while outgoing
+            if (!boomerangReturning)
+            {
+                Color trailColor = new Color((byte)180, (byte)180, (byte)220, (byte)60);
+                Raylib.DrawLineEx(playerPos, boomerangPos, 1f, trailColor);
+            }
+        }
     }
+    
+    public bool IsBoomerangActive() => isBoomerang;
+    public Vector2 GetBoomerangPos() => boomerangPos;
+    public float GetBoomerangHitRadius() => range * 32f / 2f;
     
     public void UpdateStats(int newDamage, float newAttackSpeed, float newRange)
     {

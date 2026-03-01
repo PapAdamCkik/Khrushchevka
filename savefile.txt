@@ -1,0 +1,8 @@
+level_2=0
+level_3=0
+weapon_sword=0
+weapon_axe=0
+armor_leather=0
+floor_7_boss=1
+floor_8_boss=0
+floor_9_boss=1

@@ -1,8 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "wsFb8PPj0uc=",
+  "dgSpecHash": "Z7p1GAJNKvk=",
   "success": true,
-  "projectFilePath": "C:\\Users\\pap.adam\\Desktop\\raylib beadandó\\Khrushchevka_RPG.csproj",
-  "expectedPackageFiles": [],
+  "projectFilePath": "/home/Adam/Documents/Projects/Khrushchevka_RPG/Khrushchevka_RPG.csproj",
+  "expectedPackageFiles": [
+    "/home/Adam/.nuget/packages/raylib-cs/7.0.2/raylib-cs.7.0.2.nupkg.sha512",
+    "/home/Adam/.nuget/packages/microsoft.netcore.app.ref/9.0.13/microsoft.netcore.app.ref.9.0.13.nupkg.sha512",
+    "/home/Adam/.nuget/packages/microsoft.aspnetcore.app.ref/9.0.13/microsoft.aspnetcore.app.ref.9.0.13.nupkg.sha512",
+    "/home/Adam/.nuget/packages/microsoft.netcore.app.host.linux-x64/9.0.13/microsoft.netcore.app.host.linux-x64.9.0.13.nupkg.sha512"
+  ],
   "logs": []
 }

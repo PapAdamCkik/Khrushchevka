@@ -1,0 +1,13 @@
+needed:
+- wind effect for boomerang
+- boss for stage 2 and 3
+- final boss
+- black backgroung outside the room
+- remove room block borders
+- tutorial
+optional: 
+- textures for enemies
+- textures for walls
+- textures for obsticles
+- floor backkgrounds
+- audio

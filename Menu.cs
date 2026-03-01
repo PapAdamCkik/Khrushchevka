@@ -9,7 +9,7 @@ class Menu
     private Texture2D logo;
     private Font font;
     private int selectedOption;
-    private string[] menuOptions;
+    private int language;
     
     public Menu(Texture2D background, Texture2D logo, Font font)
     {
@@ -17,16 +17,25 @@ class Menu
         this.logo = logo;
         this.font = font;
         this.selectedOption = 0;
-        this.menuOptions = new string[] { "Play", "Settings", "Exit" };
+        this.language = 0;
     }
     
-    public Program.GameState Update(KeyboardKey upKey, KeyboardKey downKey, KeyboardKey actionKey)
+    public void SetLanguage(int lang)
     {
-        if (Raylib.IsKeyPressed(downKey))
-            selectedOption = (selectedOption + 1) % menuOptions.Length;
+        language = lang;
+    }
+    
+    public Program.GameState Update(KeyboardKey upKey, KeyboardKey downKey, KeyboardKey leftKey, KeyboardKey rightKey, KeyboardKey actionKey)
+    {
+        // Navigate with movement keys OR arrow keys (shooting keys)
+        bool goDown = Raylib.IsKeyPressed(downKey) || Raylib.IsKeyPressed(KeyboardKey.Down);
+        bool goUp   = Raylib.IsKeyPressed(upKey)   || Raylib.IsKeyPressed(KeyboardKey.Up);
         
-        if (Raylib.IsKeyPressed(upKey))
-            selectedOption = (selectedOption - 1 + menuOptions.Length) % menuOptions.Length;
+        if (goDown)
+            selectedOption = (selectedOption + 1) % 3;
+        
+        if (goUp)
+            selectedOption = (selectedOption - 1 + 3) % 3;
         
         if (Raylib.IsKeyPressed(actionKey))
         {
@@ -58,6 +67,13 @@ class Menu
         Raylib.DrawTexture(logo, logoX, 50, Color.White);
         
         // Draw menu buttons
+        string[] menuOptions = new string[]
+        {
+            Localization.Get("menu_play", language),
+            Localization.Get("menu_settings", language),
+            Localization.Get("menu_exit", language)
+        };
+        
         for (int i = 0; i < menuOptions.Length; i++)
         {
             Rectangle buttonRect = new Rectangle(300, 250 + i * 60, 200, 50);
