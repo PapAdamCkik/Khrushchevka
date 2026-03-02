@@ -100,6 +100,7 @@ class Game
     // Boss system
     private Boss? currentBoss;
     private HashSet<BossType> usedBosses;
+    private int lastBossTier = 0;
     private float bossContactCooldown;
     
     // Knockback
@@ -274,6 +275,7 @@ class Game
         activeItems.Clear();
         currentBoss = null;
         usedBosses.Clear();
+        lastBossTier = 0;
         roomLocked = false;
         clearedRooms.Clear();
         lockFlashTimer = 0;
@@ -358,29 +360,35 @@ class Game
     private void SpawnBoss()
     {
         currentBoss = null;
-        
         int tier = Boss.GetTierForFloor(currentFloorNumber);
+
+        // Clear used list when entering a new tier
+        if (tier != lastBossTier)
+        {
+            usedBosses.Clear();
+            lastBossTier = tier;
+        }
+
         BossType[] tierBosses = Boss.GetTierBosses(tier);
-        
-        // Filter out already-used bosses
         var available = new List<BossType>();
         foreach (var bt in tierBosses)
             if (!usedBosses.Contains(bt)) available.Add(bt);
-        
-        // If all tier bosses used, reset (shouldn't happen with 3 bosses per 2 floors)
+
+        // All exhausted — reset for this tier only
         if (available.Count == 0)
         {
+            usedBosses.Clear();
             foreach (var bt in tierBosses) available.Add(bt);
         }
-        
+
         BossType chosen = available[itemRand.Next(available.Count)];
         usedBosses.Add(chosen);
-        
+
         float il = offsetX + tileSize;
         float ir = offsetX + 14 * tileSize;
         float it = offsetY + tileSize;
         float ib = offsetY + 8 * tileSize;
-        
+
         currentBoss = new Boss(chosen, new Vector2(400, 225), il, ir, it, ib);
         roomLocked = true;
         SoundManager.Play("room_lock");
@@ -650,7 +658,9 @@ class Game
                 
                 // Boss contact damage (0.5s cooldown)
                 if (bossContactCooldown > 0) bossContactCooldown -= bossDt;
-                if (currentBoss.IsCollidingWithPlayer(playerPos, playerSize) && bossContactCooldown <= 0)
+                if (bossContactCooldown <= 0 &&
+                    (currentBoss.IsCollidingWithPlayer(playerPos, playerSize) ||
+                     currentBoss.OrbitalCollidesWithPlayer(playerPos, playerSize)))
                 {
                     TakeDamage(1);
                     bossContactCooldown = 0.5f;
@@ -824,6 +834,7 @@ class Game
             activeItems.Clear();
             currentBoss = null;
             usedBosses.Clear();
+            lastBossTier = 0;
             roomLocked = false;
             clearedRooms.Clear();
             lockFlashTimer = 0;
@@ -845,6 +856,7 @@ class Game
             activeItems.Clear();
             currentBoss = null;
             usedBosses.Clear();
+            lastBossTier = 0;
             roomLocked = false;
             clearedRooms.Clear();
             lockFlashTimer = 0;

@@ -1,6 +1,9 @@
+bugs to fix:
+- enemies respawning in empty rooms
 needed:
 - wind effect for boomerang
-- boss for stage 2 and 3
+✓ boss for stage 2
+- boss for stage 3
 - final boss
 - black backgroung outside the room
 - remove room block borders
