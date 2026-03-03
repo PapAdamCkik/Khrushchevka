@@ -251,7 +251,6 @@ public class Tutorial
                 if (Vector2.Distance(playerPos, items[i].Position) < PlayerSize / 2 + 12f)
                 {
                     items.RemoveAt(i);
-                    SoundManager.Play("item_pickup");
                 }
             }
         }
@@ -285,7 +284,6 @@ public class Tutorial
         if (playerInvincTimer > 0) return;
         playerInvincTimer = 0.5f;
         playerFlashTimer  = 0.5f;
-        SoundManager.Play("player_hurt");
     }
 
     private bool WallCollision(Vector2 pos)

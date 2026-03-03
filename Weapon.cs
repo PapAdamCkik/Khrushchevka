@@ -49,7 +49,7 @@ public class Sword
     private float attackCooldown;
     private bool isAttacking;
     private float attackAnimTimer;
-    private float attackAnimDuration = 0.2f;
+    private float attackAnimDuration = 0.08f;
     private Vector2 attackDirection;
     
     // Charge / boomerang attack
@@ -121,7 +121,7 @@ public class Sword
                     // Caught — end boomerang
                     isBoomerang = false;
                     boomerangReturning = false;
-                    attackCooldown = 1.0f / attackSpeed;
+                    attackCooldown = 0.5f / attackSpeed;
                 }
                 else
                 {
@@ -145,7 +145,7 @@ public class Sword
         {
             isAttacking = true;
             attackAnimTimer = attackAnimDuration;
-            attackCooldown = 1.0f / attackSpeed;
+            attackCooldown = 0.5f / attackSpeed;
             attackDirection = direction.Length() > 0 ? Vector2.Normalize(direction) : new Vector2(0, -1);
             SpawnWindParticles();
             SoundManager.Play("sword_swing");

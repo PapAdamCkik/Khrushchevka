@@ -11,28 +11,11 @@ class Program
     static int[] BuildCodepoints()
     {
         var cp = new System.Collections.Generic.List<int>();
-        // Basic ASCII (32–126)
         for (int i = 32; i <= 126; i++) cp.Add(i);
-        // Hungarian / Extended Latin accented characters
         int[] extras = {
-            0x00C1, // Á
-            0x00E1, // á
-            0x00C9, // É
-            0x00E9, // é
-            0x00CD, // Í
-            0x00ED, // í
-            0x00D3, // Ó
-            0x00F3, // ó
-            0x00D6, // Ö
-            0x00F6, // ö
-            0x0150, // Ő
-            0x0151, // ő
-            0x00DA, // Ú
-            0x00FA, // ú
-            0x00DC, // Ü
-            0x00FC, // ü
-            0x0170, // Ű
-            0x0171, // ű
+            0x00C1, 0x00E1, 0x00C9, 0x00E9, 0x00CD, 0x00ED,
+            0x00D3, 0x00F3, 0x00D6, 0x00F6, 0x0150, 0x0151,
+            0x00DA, 0x00FA, 0x00DC, 0x00FC, 0x0170, 0x0171,
         };
         foreach (int e in extras) cp.Add(e);
         return cp.ToArray();
@@ -40,22 +23,32 @@ class Program
     
     static void Main(string[] args)
     {
+        Raylib.SetConfigFlags(ConfigFlags.ResizableWindow);
         Raylib.InitWindow(800, 450, "Khrushchevka RPG");
         Raylib.SetExitKey(KeyboardKey.Null);
         Raylib.SetTargetFPS(60);
-        SoundManager.Init();
         
         Texture2D background = Raylib.LoadTexture("images/menu-background.jpeg");
         Texture2D logo = Raylib.LoadTexture("images/logo.png");
-        // Load font with full Latin + Hungarian character set
-        // LoadFont only loads ASCII — LoadFontEx with explicit codepoints covers áéíóöőúüű etc.
+
+        const string fontPath = "fonts/Terminus-Bold.ttf";
+        if (!System.IO.File.Exists(fontPath))
+        {
+            Raylib.CloseWindow();
+            throw new System.IO.FileNotFoundException(
+                "Required font not found: " + fontPath + ". Place Terminus-Bold.ttf in the fonts/ folder.");
+        }
         int[] codepoints = BuildCodepoints();
-        Font customFont = Raylib.LoadFontEx("fonts/Terminus-Bold.ttf", 32, codepoints, codepoints.Length);
+        Font customFont = Raylib.LoadFontEx(fontPath, 32, codepoints, codepoints.Length);
+        Raylib.SetTextureFilter(customFont.Texture, TextureFilter.Point);
+
+        // Render everything at fixed 800x450, then scale to window with letterboxing
+        const int GameW = 800, GameH = 450;
+        RenderTexture2D renderTarget = Raylib.LoadRenderTexture(GameW, GameH);
         
         GameState currentState = GameState.MainMenu;
         GameState previousState = GameState.MainMenu;
         
-        // Settings variables - WASD defaults
         KeyboardKey upKey = KeyboardKey.W;
         KeyboardKey downKey = KeyboardKey.S;
         KeyboardKey leftKey = KeyboardKey.A;
@@ -64,7 +57,6 @@ class Program
         int difficulty = 2;
         int language = 0;
         
-        // Game progress (simplified - no floor unlocks)
         Dictionary<string, bool> unlocks = new Dictionary<string, bool>()
         {
             { "level_2", false },
@@ -74,11 +66,9 @@ class Program
             { "armor_leather", false }
         };
         
-        // Load saved settings and progress
         SettingsManager.LoadSettings(ref upKey, ref downKey, ref leftKey, ref rightKey, ref actionKey, ref difficulty, ref language);
         SettingsManager.LoadProgress(unlocks);
         
-        // Create game instances
         Menu menu = new Menu(background, logo, customFont);
         SettingsMenu settingsMenu = new SettingsMenu(customFont, background);
         Game game = new Game();
@@ -86,14 +76,28 @@ class Program
         Tutorial tutorial = new Tutorial();
         tutorial.SetFont(customFont);
         
-        // Sync language to all components
         menu.SetLanguage(language);
         settingsMenu.SetLanguage(language);
         game.SetLanguage(language);
         
         while (!Raylib.WindowShouldClose())
         {
-            // UPDATE
+            // F11 toggles fullscreen
+            if (Raylib.IsKeyPressed(KeyboardKey.F11))
+            {
+                if (Raylib.IsWindowFullscreen())
+                {
+                    Raylib.ToggleFullscreen();
+                    Raylib.SetWindowSize(800, 450);
+                }
+                else
+                {
+                    int monitor = Raylib.GetCurrentMonitor();
+                    Raylib.SetWindowSize(Raylib.GetMonitorWidth(monitor), Raylib.GetMonitorHeight(monitor));
+                    Raylib.ToggleFullscreen();
+                }
+            }
+
             switch (currentState)
             {
                 case GameState.MainMenu:
@@ -113,7 +117,6 @@ class Program
                     
                 case GameState.Playing:
                     var (gameState, openSettings) = game.Update(upKey, downKey, leftKey, rightKey, actionKey, difficulty, language, unlocks);
-                    
                     if (openSettings)
                     {
                         previousState = GameState.Playing;
@@ -121,9 +124,7 @@ class Program
                         settingsMenu.Reset();
                     }
                     else if (gameState != GameState.Playing)
-                    {
                         currentState = gameState;
-                    }
                     break;
                     
                 case GameState.Tutorial:
@@ -133,59 +134,60 @@ class Program
                     
                 case GameState.Settings:
                     (bool settingsExit, bool settingsChanged) = settingsMenu.Update(
-                        ref upKey, ref downKey, ref leftKey, ref rightKey, ref actionKey, 
+                        ref upKey, ref downKey, ref leftKey, ref rightKey, ref actionKey,
                         ref difficulty, ref language);
-                    
                     if (settingsChanged)
                     {
                         SettingsManager.SaveSettings(upKey, downKey, leftKey, rightKey, actionKey, difficulty, language);
-                        // Sync language changes immediately
                         menu.SetLanguage(language);
                         settingsMenu.SetLanguage(language);
                         game.SetLanguage(language);
                     }
-                    
-                    if (settingsExit)
-                    {
-                        currentState = previousState;
-                    }
+                    if (settingsExit) currentState = previousState;
                     break;
             }
             
-            // DRAW
-            Raylib.BeginDrawing();
-            Raylib.ClearBackground(Color.RayWhite);
-            
+            // Draw everything into the fixed-resolution render target
+            Raylib.BeginTextureMode(renderTarget);
+            Raylib.ClearBackground(Color.Black);
+
             switch (currentState)
             {
-                case GameState.MainMenu:
-                    menu.Draw();
-                    break;
-                    
-                case GameState.Playing:
-                    game.Draw();
-                    break;
-                    
-                case GameState.Tutorial:
-                    tutorial.Draw();
-                    break;
-                    
+                case GameState.MainMenu: menu.Draw(); break;
+                case GameState.Playing:  game.Draw();  break;
+                case GameState.Tutorial: tutorial.Draw(); break;
                 case GameState.Settings:
-                    if (previousState == GameState.Playing)
-                        game.Draw();
-                    else
-                        menu.Draw();
-                    
+                    if (previousState == GameState.Playing) game.Draw();
+                    else menu.Draw();
                     settingsMenu.Draw();
                     break;
             }
-            
+
+            Raylib.EndTextureMode();
+
+            // Scale render target to window with letterboxing
+            Raylib.BeginDrawing();
+            Raylib.ClearBackground(Color.Black);
+
+            int winW = Raylib.GetScreenWidth();
+            int winH = Raylib.GetScreenHeight();
+            float scale = Math.Min((float)winW / GameW, (float)winH / GameH);
+            int destW = (int)(GameW * scale);
+            int destH = (int)(GameH * scale);
+            int destX = (winW - destW) / 2;
+            int destY = (winH - destH) / 2;
+
+            // Source rect: flip Y because RenderTexture is upside-down in Raylib
+            Rectangle src  = new Rectangle(0, 0, GameW, -GameH);
+            Rectangle dest = new Rectangle(destX, destY, destW, destH);
+            Raylib.DrawTexturePro(renderTarget.Texture, src, dest, Vector2.Zero, 0f, Color.White);
+
             Raylib.EndDrawing();
         }
         
         if (Raylib.IsWindowReady())
         {
-            SoundManager.Unload();
+            Raylib.UnloadRenderTexture(renderTarget);
             Raylib.UnloadTexture(background);
             Raylib.UnloadTexture(logo);
             Raylib.UnloadFont(customFont);

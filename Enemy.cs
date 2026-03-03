@@ -97,8 +97,14 @@ public class Enemy
     private float reviveCastTimer;
     
     private Random rand;
+    private float difficultyBulletMult = 1.0f;
+
+    public void SetDifficulty(int difficulty)
+    {
+        difficultyBulletMult = difficulty switch { 0 => 0.60f, 1 => 0.80f, _ => 1.0f };
+    }
     
-    public Enemy(EnemyType type, Vector2 position, float playerSpeed)
+    public Enemy(EnemyType type, Vector2 position, float playerSpeed, int floor = 1)
     {
         Type = type;
         Position = position;
@@ -108,6 +114,9 @@ public class Enemy
         pathIndex = 0;
         pathRecalcTimer = 0;
         rand = new Random();
+        
+        // HP scales with floor: +20% per floor beyond floor 1 (floor 1 = 1.0x, floor 7 = 2.2x)
+        float hpMult = 1f + (floor - 1) * 0.2f;
         
         // Set properties based on type
         switch (type)
@@ -174,6 +183,10 @@ public class Enemy
                 Color = Color.Magenta;
                 break;
         }
+
+        // Apply floor HP scaling after base stats are set
+        MaxHealth = (int)(MaxHealth * hpMult);
+        Health = MaxHealth;
     }
     
     public void TakeDamage(int damage)
@@ -190,18 +203,15 @@ public class Enemy
                 stunnedTimer = reviveTime;
                 Health = 1;
                 Color = Color.DarkGray;
-                SoundManager.Play("enemy_hurt");
             }
             else
             {
                 Health = 0;
                 IsAlive = false;
-                SoundManager.Play("enemy_death");
             }
         }
         else
         {
-            SoundManager.Play("enemy_hurt");
         }
     }
     
@@ -371,9 +381,8 @@ public class Enemy
             {
                 float angle = (float)(rand.NextDouble() * Math.PI * 2);
                 Vector2 direction = new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle));
-                bullets.Add(new Bullet(Position, direction * 100f, 5f, false));
+                bullets.Add(new Bullet(Position, direction * 100f * difficultyBulletMult, 5f, false));
             }
-            SoundManager.Play("enemy_shoot");
         }
     }
     
@@ -422,7 +431,6 @@ public class Enemy
                     };
                     reviveCastTimer = 0;
                     reviveTarget = null;
-                    SoundManager.Play("enemy_revive");
                 }
             }
         }
@@ -447,9 +455,8 @@ public class Enemy
                 {
                     float angle = (float)(rand.NextDouble() * Math.PI * 2);
                     Vector2 direction = new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle));
-                    bullets.Add(new Bullet(Position, direction * 100f, 5f, false));
+                    bullets.Add(new Bullet(Position, direction * 100f * difficultyBulletMult, 5f, false));
                 }
-                SoundManager.Play("enemy_shoot");
             }
             
             if (rand.NextDouble() < 0.01)
@@ -578,8 +585,7 @@ public class Enemy
     private void ShootAtPlayer(Vector2 playerPos, List<Bullet> bullets, float bulletSpeed, bool pierceWalls)
     {
         Vector2 direction = Vector2.Normalize(playerPos - Position);
-        bullets.Add(new Bullet(Position, direction * bulletSpeed, 5f, pierceWalls));
-        SoundManager.Play("enemy_shoot");
+        bullets.Add(new Bullet(Position, direction * bulletSpeed * difficultyBulletMult, 5f, pierceWalls));
     }
     
     private List<Vector2> FindPath(Vector2 start, Vector2 end, int[,] roomLayout, int tileSize, int offsetX, int offsetY)

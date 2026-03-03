@@ -14,6 +14,15 @@ class SettingsMenu
     private string[] settingsOptions;
     private int language;
     
+    // Stored for display in Draw()
+    private KeyboardKey displayUp    = KeyboardKey.W;
+    private KeyboardKey displayDown  = KeyboardKey.S;
+    private KeyboardKey displayLeft  = KeyboardKey.A;
+    private KeyboardKey displayRight = KeyboardKey.D;
+    private KeyboardKey displayAction = KeyboardKey.Space;
+    private int displayDifficulty = 2;
+    private int displayLanguage   = 0;
+    
     public SettingsMenu(Font font, Texture2D bg)
     {
         this.font = font;
@@ -94,6 +103,15 @@ class SettingsMenu
             return (true, changed);
         }
         
+        // Keep display values in sync
+        displayUp       = upKey;
+        displayDown     = downKey;
+        displayLeft     = leftKey;
+        displayRight    = rightKey;
+        displayAction   = actionKey;
+        displayDifficulty = difficulty;
+        displayLanguage   = language;
+        
         return (false, changed);
     }
     
@@ -110,7 +128,9 @@ class SettingsMenu
         
         Raylib.DrawRectangle(0, 0, 800, 450, new Color(0, 0, 0, 200));
         
-        Raylib.DrawTextEx(font, Localization.Get("settings_title", language), new Vector2(280, 30), 40, 2, Color.White);
+        string title = Localization.Get("settings_title", language);
+        Vector2 titleSize = Raylib.MeasureTextEx(font, title, 40, 2);
+        Raylib.DrawTextEx(font, title, new Vector2((800 - titleSize.X) / 2, 30), 40, 2, Color.White);
         
         settingsOptions = new string[]
         {
@@ -127,24 +147,46 @@ class SettingsMenu
         for (int i = 0; i < settingsOptions.Length; i++)
         {
             Rectangle buttonRect = new Rectangle(200, 100 + i * 45, 400, 40);
-            Color bgColor = i == selectedOption ? Color.DarkGray : new Color(219, 189, 162, 255);
-            Color textColor = i == selectedOption ? Color.White : Color.Black;
+            Color bgColor   = i == selectedOption ? Color.DarkGray : new Color(219, 189, 162, 255);
+            Color textColor = i == selectedOption ? Color.White    : Color.Black;
             
             Raylib.DrawRectangleRec(buttonRect, bgColor);
             Raylib.DrawRectangleLinesEx(buttonRect, 2, Color.Black);
             
-            string displayText = settingsOptions[i];
-            
+            // Label — centered
+            string labelText = settingsOptions[i];
             if (i == selectedOption && waitingForKey)
+                labelText = Localization.Get("settings_press_key", language);
+            
+            Vector2 labelSize = Raylib.MeasureTextEx(font, labelText, 22, 1);
+            float labelX = buttonRect.X + (buttonRect.Width - labelSize.X) / 2;
+            float labelY = buttonRect.Y + (buttonRect.Height - labelSize.Y) / 2;
+            Raylib.DrawTextEx(font, labelText, new Vector2(labelX, labelY), 22, 1, textColor);
+            
+            // Right-side value (key binding or current setting value)
+            if (!waitingForKey || i != selectedOption)
             {
-                displayText += ": " + Localization.Get("settings_press_key", language);
+                string valueText = i switch
+                {
+                    0 => displayUp.ToString(),
+                    1 => displayDown.ToString(),
+                    2 => displayLeft.ToString(),
+                    3 => displayRight.ToString(),
+                    4 => displayAction.ToString(),
+                    5 => displayDifficulty switch { 0 => Localization.Get("difficulty_easy", language), 1 => Localization.Get("difficulty_medium", language), _ => Localization.Get("difficulty_hard", language) },
+                    6 => displayLanguage == 0 ? Localization.Get("language_english", language) : Localization.Get("language_hungarian", language),
+                    _ => ""
+                };
+                
+                if (valueText != "")
+                {
+                    Vector2 valSize = Raylib.MeasureTextEx(font, valueText, 20, 1);
+                    float valX = buttonRect.X + buttonRect.Width - valSize.X - 10;
+                    float valY = buttonRect.Y + (buttonRect.Height - valSize.Y) / 2;
+                    Color valColor = i == selectedOption ? new Color((byte)200, (byte)220, (byte)255, (byte)255) : new Color((byte)80, (byte)80, (byte)80, (byte)255);
+                    Raylib.DrawTextEx(font, valueText, new Vector2(valX, valY), 20, 1, valColor);
+                }
             }
-            
-            Vector2 textSize = Raylib.MeasureTextEx(font, displayText, 22, 1);
-            float textX = buttonRect.X + 10;
-            float textY = buttonRect.Y + (buttonRect.Height - textSize.Y) / 2;
-            
-            Raylib.DrawTextEx(font, displayText, new Vector2(textX, textY), 22, 1, textColor);
         }
     }
 }

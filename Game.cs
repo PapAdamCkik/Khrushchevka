@@ -95,6 +95,10 @@ class Game
     // Enemy system
     private List<Enemy> enemies;
     private List<Bullet> bullets;
+    private List<Particle> worldParticles = new();
+    private float dustSpawnTimer;
+    private float sparkleSpawnTimer;
+    private Random particleRand = new Random();
     private float enemySpawnTimer;
     
     // Boss system
@@ -128,6 +132,7 @@ class Game
     // Item system
     private List<PickupItem> activeItems;
     private Random itemRand;
+    private int currentDifficulty;
     
     public Game()
     {
@@ -156,7 +161,7 @@ class Game
         speed = 1.0f;
         damage = 5;
         attackSpeed = 1.0f;
-        range = 1.0f;
+        range = 2.0f;
         
         // Initialize weapon
         sword = new Sword(damage, attackSpeed, range);
@@ -177,6 +182,9 @@ class Game
         // Initialize enemy system
         enemies = new List<Enemy>();
         bullets = new List<Bullet>();
+        worldParticles = new List<Particle>();
+        dustSpawnTimer = 0f;
+        sparkleSpawnTimer = 0f;
         enemySpawnTimer = 0;
         
         // Initialize boss system
@@ -192,6 +200,7 @@ class Game
         // Initialize item system
         activeItems = new List<PickupItem>();
         itemRand = new Random();
+        currentDifficulty = 2;
     }
     
     public void SetFont(Font font)
@@ -258,7 +267,16 @@ class Game
         currentRoomNode = currentFloor[currentRoomPos];
         playerPos = new Vector2(400, 225);
         lastMoveDirection = new Vector2(0, -1);
-        currentHealth = maxHealth;
+
+        // Reset player stats to base values
+        maxHealth = 10;
+        currentHealth = 10;
+        speed = 1.0f;
+        damage = 5;
+        attackSpeed = 1.0f;
+        range = 2.0f;
+        sword.UpdateStats(damage, attackSpeed, range);
+
         isDead = false;
         hasWon = false;
         showGateway = false;
@@ -273,6 +291,7 @@ class Game
         enemies.Clear();
         bullets.Clear();
         activeItems.Clear();
+        worldParticles.Clear();
         currentBoss = null;
         usedBosses.Clear();
         lastBossTier = 0;
@@ -306,11 +325,14 @@ class Game
         
         Random rand = new Random();
         
-        // 50% chance the room is empty — no enemies spawn
+        // 50% chance the room is empty — mark as cleared so it stays empty on re-entry
         if (rand.NextDouble() < 0.5)
+        {
+            clearedRooms.Add(currentRoomPos);
             return;
+        }
         
-        int enemyCount = 3 + (currentFloorNumber * 2);
+        int enemyCount = 4;
         
         for (int i = 0; i < enemyCount; i++)
         {
@@ -347,7 +369,9 @@ class Game
             float enemySpeed = 3.0f * speed * floorSpeedMult;
             
             EnemyType type = DetermineEnemyType(rand);
-            enemies.Add(new Enemy(type, spawnPos, enemySpeed));
+            var newEnemy = new Enemy(type, spawnPos, enemySpeed);
+            newEnemy.SetDifficulty(currentDifficulty);
+            enemies.Add(newEnemy);
         }
         
         if (enemies.Count > 0)
@@ -360,6 +384,21 @@ class Game
     private void SpawnBoss()
     {
         currentBoss = null;
+
+        float il = offsetX + tileSize;
+        float ir = offsetX + 14 * tileSize;
+        float it = offsetY + tileSize;
+        float ib = offsetY + 8 * tileSize;
+
+        // Floor 7 always spawns the FinalBoss
+        if (currentFloorNumber == 7)
+        {
+            currentBoss = new Boss(BossType.FinalBoss, new Vector2(400, 225), il, ir, it, ib);
+            currentBoss.SetDifficulty(currentDifficulty);
+            roomLocked = true;
+            return;
+        }
+
         int tier = Boss.GetTierForFloor(currentFloorNumber);
 
         // Clear used list when entering a new tier
@@ -384,15 +423,9 @@ class Game
         BossType chosen = available[itemRand.Next(available.Count)];
         usedBosses.Add(chosen);
 
-        float il = offsetX + tileSize;
-        float ir = offsetX + 14 * tileSize;
-        float it = offsetY + tileSize;
-        float ib = offsetY + 8 * tileSize;
-
         currentBoss = new Boss(chosen, new Vector2(400, 225), il, ir, it, ib);
+        currentBoss.SetDifficulty(currentDifficulty);
         roomLocked = true;
-        SoundManager.Play("room_lock");
-        SoundManager.Play("boss_enter");
     }
     
     private void UpdateRoomLock()
@@ -449,14 +482,16 @@ class Game
     
     private void ApplyItem(ItemType type)
     {
+        // Difficulty 0=Easy: 1.5x bonus, 1=Medium: 1.0x, 2=Hard: 0.75x
+        float bonus = currentDifficulty switch { 0 => 1.5f, 1 => 1.0f, _ => 0.75f };
         switch (type)
         {
-            case ItemType.HealthPickup:   Heal(3); break;
-            case ItemType.MaxHealthUp:    maxHealth += 5; currentHealth += 5; break;
-            case ItemType.SpeedUp:        speed += 0.5f; break;
-            case ItemType.DamageUp:       damage += 3; sword.UpdateStats(damage, attackSpeed, range); break;
-            case ItemType.RangeUp:        range += 0.5f; sword.UpdateStats(damage, attackSpeed, range); break;
-            case ItemType.AttackSpeedUp:  attackSpeed += 0.5f; sword.UpdateStats(damage, attackSpeed, range); break;
+            case ItemType.HealthPickup:   Heal((int)Math.Round(3 * bonus)); break;
+            case ItemType.MaxHealthUp:    int mhAdd = (int)Math.Round(5 * bonus); maxHealth += mhAdd; currentHealth += mhAdd; break;
+            case ItemType.SpeedUp:        speed += 0.5f * bonus; break;
+            case ItemType.DamageUp:       damage += (int)Math.Round(3 * bonus); sword.UpdateStats(damage, attackSpeed, range); break;
+            case ItemType.RangeUp:        range += 0.5f * bonus; sword.UpdateStats(damage, attackSpeed, range); break;
+            case ItemType.AttackSpeedUp:  attackSpeed += 0.5f * bonus; sword.UpdateStats(damage, attackSpeed, range); break;
         }
     }
     
@@ -488,6 +523,7 @@ class Game
     
     public (Program.GameState newState, bool openSettings) Update(KeyboardKey upKey, KeyboardKey downKey, KeyboardKey leftKey, KeyboardKey rightKey, KeyboardKey actionKey, int difficulty, int language, Dictionary<string, bool> unlocks)
     {
+        currentDifficulty = difficulty;
         // Won screen handling
         if (hasWon)
         {
@@ -502,7 +538,10 @@ class Game
                 if (wonSelectedOption == 0)
                     RestartGame();
                 else
+                {
+                    RestartGame();
                     return (Program.GameState.MainMenu, false);
+                }
             }
             
             return (Program.GameState.Playing, false);
@@ -522,7 +561,10 @@ class Game
                 if (deathSelectedOption == 0)
                     RestartGame();
                 else
+                {
+                    RestartGame();
                     return (Program.GameState.MainMenu, false);
+                }
             }
             
             return (Program.GameState.Playing, false);
@@ -533,6 +575,18 @@ class Game
         {
             isPaused = !isPaused;
             pauseSelectedOption = 0;
+        }
+
+        // Debug cheat: G sets all stats to max
+        if (Raylib.IsKeyPressed(KeyboardKey.G))
+        {
+            currentHealth = 50;
+            maxHealth = 50;
+            damage = 50;
+            speed = 2.0f;
+            range = 10.0f;
+            attackSpeed = 10.0f;
+            sword.UpdateStats(damage, attackSpeed, range);
         }
         
         if (isPaused)
@@ -641,7 +695,10 @@ class Game
             {
                 for (int i = 0; i < enemies.Count; i++)
                 {
+                    bool wasAlive = enemies[i].IsAlive;
                     enemies[i].Update(Raylib.GetFrameTime(), playerPos, currentRoomNode.RoomData.Layout, tileSize, offsetX, offsetY, bullets, enemies);
+                    if (wasAlive && !enemies[i].IsAlive)
+                        SpawnDeathBlood(enemies[i].Position);
                 }
                 // Remove permanently dead enemies (IsAlive=false and no Reviver alive to resurrect them)
                 bool reviverAlive = enemies.Any(e => e.Type == EnemyType.Reviver && e.IsAlive);
@@ -653,8 +710,16 @@ class Game
             if (currentBoss != null && currentBoss.IsAlive)
             {
                 float bossDt = Raylib.GetFrameTime();
+                bool bossWasAlive = currentBoss.IsAlive;
                 var spawned = currentBoss.Update(bossDt, playerPos, bullets, 3.0f * speed);
-                enemies.AddRange(spawned);
+                if (bossWasAlive && !currentBoss.IsAlive)
+                    SpawnDeathBlood(currentBoss.Position, 30);
+                foreach (var se in spawned)
+                {
+                    if (enemies.Count >= 8) break;
+                    se.SetDifficulty(currentDifficulty);
+                    enemies.Add(se);
+                }
                 
                 // Boss contact damage (0.5s cooldown)
                 if (bossContactCooldown > 0) bossContactCooldown -= bossDt;
@@ -674,7 +739,11 @@ class Game
                     var hitbox = sword.GetAttackHitbox();
                     float distToLine = PointToLineDistance(currentBoss.Position, hitbox.start, hitbox.end);
                     if (distToLine < currentBoss.Size + hitbox.width / 2)
+                    {
                         currentBoss.TakeDamage(damage);
+                        Vector2 bossKbDir = Vector2.Normalize(currentBoss.Position - playerPos);
+                        SpawnBloodParticles(currentBoss.Position, -bossKbDir);
+                    }
                 }
             }
             
@@ -748,6 +817,7 @@ class Game
                         Vector2 kbDir = Vector2.Normalize(enemy.Position - playerPos);
                         enemy.ApplyKnockback(kbDir, 350f);
                         SoundManager.Play("sword_hit");
+                        SpawnBloodParticles(enemy.Position, -kbDir);
                     }
                 }
             }
@@ -766,15 +836,21 @@ class Game
                         Vector2 kbDir = Vector2.Normalize(enemy.Position - bPos);
                         enemy.ApplyKnockback(kbDir, 300f);
                         SoundManager.Play("sword_hit");
+                        SpawnBloodParticles(enemy.Position, -kbDir);
                     }
                 }
                 if (currentBoss != null && currentBoss.IsAlive)
                 {
                     if (Vector2.Distance(bPos, currentBoss.Position) < bRadius + currentBoss.Size)
+                    {
                         currentBoss.TakeDamage(damage);
+                        Vector2 bossKbDir = Vector2.Normalize(currentBoss.Position - bPos);
+                        SpawnBloodParticles(currentBoss.Position, -bossKbDir);
+                    }
                 }
             }
             
+            UpdateWorldParticles(Raylib.GetFrameTime());
             CheckRoomTransition();
             UpdateGateway();
             CheckGatewayInteraction();
@@ -1082,6 +1158,7 @@ class Game
                 Raylib.DrawCircleV(bullet.Position, bullet.Size, Color.Yellow);
             }
             
+            DrawWorldParticles();
             DrawMinimap();
         }
         
@@ -1182,6 +1259,102 @@ class Game
         );
     }
     
+
+    // -- Particle System ---------------------------------------------------------
+
+    private void SpawnBloodParticles(Vector2 origin, Vector2 direction)
+    {
+        int count = 6 + particleRand.Next(5);
+        for (int i = 0; i < count; i++)
+        {
+            float spread = (float)((particleRand.NextDouble() - 0.5) * System.Math.PI * 0.8);
+            float angle = (float)System.Math.Atan2(direction.Y, direction.X) + spread;
+            float speed = 80f + (float)(particleRand.NextDouble() * 140f);
+            Vector2 vel = new Vector2((float)System.Math.Cos(angle), (float)System.Math.Sin(angle)) * speed;
+            float lifetime = 0.25f + (float)(particleRand.NextDouble() * 0.3f);
+            float size = 2f + (float)(particleRand.NextDouble() * 3f);
+            worldParticles.Add(new Particle(origin, vel, lifetime,
+                new Color((byte)180, (byte)10, (byte)10, (byte)255), size));
+        }
+    }
+
+    private void SpawnDeathBlood(Vector2 origin, int count = 18)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            float angle = (float)(particleRand.NextDouble() * System.Math.PI * 2);
+            float speed = 60f + (float)(particleRand.NextDouble() * 220f);
+            Vector2 vel = new Vector2((float)System.Math.Cos(angle), (float)System.Math.Sin(angle)) * speed;
+            float lifetime = 0.3f + (float)(particleRand.NextDouble() * 0.5f);
+            float size = 2.5f + (float)(particleRand.NextDouble() * 4f);
+            worldParticles.Add(new Particle(origin, vel, lifetime,
+                new Color((byte)180, (byte)10, (byte)10, (byte)255), size));
+        }
+    }
+
+    private void UpdateWorldParticles(float dt)
+    {
+        for (int i = worldParticles.Count - 1; i >= 0; i--)
+        {
+            worldParticles[i].Update(dt);
+            worldParticles[i].Velocity *= (1f - dt * 4f);
+            if (!worldParticles[i].IsAlive())
+                worldParticles.RemoveAt(i);
+        }
+
+        float pLeft   = offsetX + tileSize;
+        float pRight  = offsetX + 14 * tileSize;
+        float pTop    = offsetY + tileSize;
+        float pBottom = offsetY + 8 * tileSize;
+
+        // Ambient dust
+        dustSpawnTimer -= dt;
+        if (dustSpawnTimer <= 0)
+        {
+            dustSpawnTimer = 0.12f + (float)(particleRand.NextDouble() * 0.18f);
+            if (currentRoomNode != null)
+            {
+                float rx = pLeft + (float)(particleRand.NextDouble() * (pRight - pLeft));
+                float ry = pTop  + (float)(particleRand.NextDouble() * (pBottom - pTop));
+                Vector2 vel = new Vector2(
+                    (float)(particleRand.NextDouble() - 0.5) * 12f,
+                    (float)(particleRand.NextDouble() - 0.5) * 12f);
+                float lifetime = 1.8f + (float)(particleRand.NextDouble() * 1.4f);
+                byte g = (byte)(80 + particleRand.Next(60));
+                worldParticles.Add(new Particle(new Vector2(rx, ry), vel, lifetime,
+                    new Color(g, g, g, (byte)55), 1.5f));
+            }
+        }
+
+        // Rare yellow sparkles in item rooms
+        if (currentRoomNode?.Type == RoomType.Item)
+        {
+            sparkleSpawnTimer -= dt;
+            if (sparkleSpawnTimer <= 0)
+            {
+                sparkleSpawnTimer = 0.8f + (float)(particleRand.NextDouble() * 1.6f);
+                float rx = pLeft + (float)(particleRand.NextDouble() * (pRight - pLeft));
+                float ry = pTop  + (float)(particleRand.NextDouble() * (pBottom - pTop));
+                Vector2 vel = new Vector2(
+                    (float)(particleRand.NextDouble() - 0.5) * 20f,
+                    -15f - (float)(particleRand.NextDouble() * 20f));
+                float lifetime = 1.0f + (float)(particleRand.NextDouble() * 0.8f);
+                worldParticles.Add(new Particle(new Vector2(rx, ry), vel, lifetime,
+                    new Color((byte)255, (byte)220, (byte)30, (byte)220), 2.5f));
+            }
+        }
+    }
+
+    private void DrawWorldParticles()
+    {
+        foreach (var p in worldParticles)
+        {
+            float alpha = p.GetAlpha();
+            Color c = new Color(p.Color.R, p.Color.G, p.Color.B, (byte)(p.Color.A * alpha));
+            Raylib.DrawCircleV(p.Position, System.Math.Max(p.Size * alpha, 0.5f), c);
+        }
+    }
+
     private void DrawMinimap()
     {
         int minimapTileSize = 15;
@@ -1270,11 +1443,31 @@ class Game
             (int)playerSize,
             playerColor
         );
+
+        // Boomerang charge bar — visible while holding attack key
+        if (chargeHoldTimer > 0)
+        {
+            const float chargeDuration = 0.4f;
+            float pct = Math.Min(chargeHoldTimer / chargeDuration, 1.0f);
+            int barW = (int)playerSize + 8;
+            int barH = 5;
+            int barX = (int)(playerPos.X - barW / 2);
+            int barY = (int)(playerPos.Y - playerSize / 2 - 10);
+            Raylib.DrawRectangle(barX, barY, barW, barH, new Color((byte)30, (byte)30, (byte)60, (byte)200));
+            Color fillColor = pct >= 1.0f
+                ? Color.White
+                : new Color((byte)60, (byte)140, (byte)255, (byte)230);
+            Raylib.DrawRectangle(barX, barY, (int)(barW * pct), barH, fillColor);
+            Raylib.DrawRectangleLines(barX, barY, barW, barH, new Color((byte)100, (byte)160, (byte)255, (byte)255));
+        }
     }
     
     private void DrawRoom(FloorNode node)
     {
-        // Draw walls
+        // Fill entire room area black — becomes 1px black gridlines between tiles
+        Raylib.DrawRectangle(offsetX, offsetY, 15 * tileSize, 9 * tileSize, Color.Black);
+
+        // Draw walls with tileSize-1 so 1px black border shows between tiles
         for (int x = 0; x < 15; x++)
         {
             Color wallColor = (x == 7 && node.HasTopDoor) ? Color.Beige : Color.DarkGray;
